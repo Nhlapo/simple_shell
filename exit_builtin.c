@@ -11,8 +11,6 @@ void print_prompt(void);
 void read_command(char *line);
 void execute_command(char *command);
 void handle_eof(void);
-pid_t fork_and_execute(char *command);
-int wait_for_child(pid_t child_pid);
 
 /**
  * print_prompt - Display the shell prompt.
@@ -37,49 +35,7 @@ void read_command(char *line)
 	/* Remove the newline character from the end of the line */
 	line[strlen(line) - 1] = '\0';
 }
-/**
- * fork_and_execute - Fork and execute a shell command.
- * @command: The command to execute.
- * Return: The child process ID or -1 on failure.
- */
-pid_t fork_and_execute(char *command)
-{
-	pid_t child_pid = fork();
 
-	if (child_pid == -1)
-	{
-		perror("fork");
-		return (-1);
-	}
-	else if (child_pid == 0)
-	{
-		if (execlp("/bin/sh", "sh", "-c", command, NULL) == -1)
-		{
-			perror("execlp");
-			exit(1);
-		}
-		exit(0);
-	}
-
-	return (child_pid);
-}
-
-/**
- * wait_for_child - Wait for the child process to finish.
- * @child_pid: The process ID of the child.
- * Return: The status of the child process or -1 on failure.
- */
-int wait_for_child(pid_t child_pid)
-{
-	int status;
-
-	if (waitpid(child_pid, &status, 0) == -1)
-	{
-		perror("waitpid");
-		return (-1);
-	}
-	return (status);
-}
 /**
  * execute_command - Execute a shell command.
  * @command: The command to execute.
@@ -89,26 +45,78 @@ void execute_command(char *command)
 	pid_t child_pid;
 	int status;
 
-	/* Fork and execute the command */
-	child_pid = fork_and_execute(command);
+	if (strcmp(command, "exit") == 0)
+	{
+		char *status_arg = strtok(NULL, " ");
+
+		if (status_arg != NULL)
+		{
+			int exit_status = atoi(status_arg);
+
+			exit(exit_status);
+
+		}
+		else
+		{
+			exit(0);
+		}
+	}
+
+	/* Fork a child process */
+	child_pid = fork();
 	if (child_pid == -1)
 	{
-		return;
+		perror("fork");
+		exit(1);
 	}
-
-	/* Wait for the child process to finish */
-	status = wait_for_child(child_pid);
-	if (status == -1)
+	else if (child_pid == 0)
 	{
-		return;
+		/* In the child process, allocate memory for argv */
+		char **argv = malloc(2 * sizeof(char *));
+
+		if (argv == NULL)
+
+		{
+			perror("malloc");
+			exit(1);
+		}
+		argv[0] = strdup(command);
+		if (argv[0] == NULL)
+		{
+			perror("strdup");
+			free(argv);
+			exit(1);
+		}
+		argv[1] = NULL;
+
+		/* Execute the command */
+		if (execve(command, argv, environ) == -1)
+		{
+			perror("hsh");
+			free(argv);
+			exit(1);
+		}
+free(argv);
 	}
-
-	/* If child process exited with a non-zero status print an error message */
-	if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+	else
 	{
-		printf("Child exited with status %d\n", WEXITSTATUS(status));
+		/* In the parent process */
+		/* Wait for the child process to finish */
+		if (waitpid(child_pid, &status, 0) == -1)
+		{
+			perror("waitpid");
+			exit(1);
+		}
+
+		if (WIFEXITED(status))
+		{
+			int exit_status = WEXITSTATUS(status);
+
+			printf("Child exited with status %d\n", exit_status);
+		}
 	}
 }
+
 /**
  * handle_eof - Handle the "end of file" condition (Ctrl+D).
  */
