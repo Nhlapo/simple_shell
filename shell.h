@@ -143,6 +143,24 @@ void help_setenv(void);
 void help_unsetenv(void);
 void help_history(void);
 
+void _prompt(void);
+
+void _tokenize(char *args[], char *cmd);
+void _ext(char *cmd);
+void _printenv(char *cmd);
+/*int _execve(const char *pathname, char *const argv[], char *const envp[]);*/
+/*pid_t _waitpid(pid_t pid, int *wstatus, int options);*/
+/*char *check_cmd(char *cmd);*/
+
+/* string function */
+int _strcmp(const char *s1, const char *s2);
+size_t _strlen(const char *str);
+size_t _strcspn(const char *str, const char *reject);
+char *_strtok(char *str, const char *delim);
+
+/* getline */
+ssize_t _getline(char **lineptr, size_t *n, FILE *stream);
+
 int proc_file_commands(char *file_path, int *exe_ret);
 
 #endif /* _SHELL_H_ */
