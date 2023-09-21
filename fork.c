@@ -11,8 +11,6 @@ void print_prompt(void);
 void read_command(char *line);
 void execute_command(char *command);
 void handle_eof(void);
-pid_t fork_and_execute(char *command);
-int wait_for_child(pid_t child_pid);
 
 /**
  * print_prompt - Display the shell prompt.
@@ -37,49 +35,7 @@ void read_command(char *line)
 	/* Remove the newline character from the end of the line */
 	line[strlen(line) - 1] = '\0';
 }
-/**
- * fork_and_execute - Fork and execute a shell command.
- * @command: The command to execute.
- * Return: The child process ID or -1 on failure.
- */
-pid_t fork_and_execute(char *command)
-{
-	pid_t child_pid = fork();
 
-	if (child_pid == -1)
-	{
-		perror("fork");
-		return (-1);
-	}
-	else if (child_pid == 0)
-	{
-		if (execlp("/bin/sh", "sh", "-c", command, NULL) == -1)
-		{
-			perror("execlp");
-			exit(1);
-		}
-		exit(0);
-	}
-
-	return (child_pid);
-}
-
-/**
- * wait_for_child - Wait for the child process to finish.
- * @child_pid: The process ID of the child.
- * Return: The status of the child process or -1 on failure.
- */
-int wait_for_child(pid_t child_pid)
-{
-	int status;
-
-	if (waitpid(child_pid, &status, 0) == -1)
-	{
-		perror("waitpid");
-		return (-1);
-	}
-	return (status);
-}
 /**
  * execute_command - Execute a shell command.
  * @command: The command to execute.
@@ -89,26 +45,44 @@ void execute_command(char *command)
 	pid_t child_pid;
 	int status;
 
+	if (access(command, X_OK) == -1)
+	{
+		perror("access");
+		return;
+	}
+
 	/* Fork and execute the command */
-	child_pid = fork_and_execute(command);
+	child_pid = fork();
+
 	if (child_pid == -1)
 	{
+		perror("fork");
 		return;
+	}
+	else if (child_pid == 0)
+	{
+		if (execlp(command, command, NULL) == -1)
+		{
+			perror("execlp");
+			exit(1);
+		}
+		exit(0);
 	}
 
 	/* Wait for the child process to finish */
-	status = wait_for_child(child_pid);
-	if (status == -1)
+	if (waitpid(child_pid, &status, 0) == -1)
 	{
+		perror("waitpid");
 		return;
 	}
 
-	/* If child process exited with a non-zero status print an error message */
+	/* If child process exited with a non-zero status, print an error message */
 	if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
 	{
 		printf("Child exited with status %d\n", WEXITSTATUS(status));
 	}
 }
+
 /**
  * handle_eof - Handle the "end of file" condition (Ctrl+D).
  */

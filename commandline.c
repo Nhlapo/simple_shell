@@ -9,8 +9,6 @@
 #define MAX_ARGS 64
 
 void print_prompt(void);
-void read_command(char *line);
-void execute_command(char *command);
 void handle_eof(void);
 char **create_argv(char *command);
 
@@ -23,70 +21,68 @@ void print_prompt(void)
 }
 
 /**
- * read_command - Read a command from the user.
- * @line: A buffer to store the command line.
+ * handle_eof - Handle the "end of file" condition (Ctrl+D).
  */
-void read_command(char *line)
+void handle_eof(void)
 {
-	if (fgets(line, MAX_LINE_LENGTH, stdin) == NULL)
-	{
-		/* Handle end of file (Ctrl+D) */
-		handle_eof();
-	}
-
-	/* Remove the newline character from the end of the line */
-	line[strlen(line) - 1] = '\0';
+	printf("\n");
+	exit(0);
 }
 
 /**
- * execute_child_process - Execute a shell command in the child process.
- * @command: The command to execute.
+ * create_argv - Create an argument vector from a command string.
+ * @command: The command string.
+ * Return: An array of strings (arguments).
  */
-void execute_child_process(char *command)
+char **create_argv(char *command)
 {
-	char **argv = create_argv(command);
+	char **argv = malloc((MAX_ARGS + 1) * sizeof(char *));
+	int i;
+	char *token;
+	int argc = 0;
 
-	if (execvp(command, argv) == -1)
+	if (argv == NULL)
 	{
-		perror("hsh");
-		free(argv);
+		perror("malloc");
 		exit(1);
 	}
-}
 
-/**
- * wait_for_child - Wait for the child process to finish.
- * @child_pid: The process ID of the child.
- * @status: Pointer to the status variable.
- */
-void wait_for_child(pid_t child_pid, int *status)
-{
-	if (waitpid(child_pid, status, 0) == -1)
+	token = strtok(command, " ");
+	while (token != NULL)
 	{
-		perror("waitpid");
-		exit(1);
-	}
-}
+		argv[argc] = strdup(token);
+		if (argv[argc] == NULL)
+		{
+			perror("strdup");
+			exit(1);
+		}
+		argc++;
 
-/**
- * report_child_status - Report the status of the child process.
- * @status: The status of the child process.
- */
-void report_child_status(int status)
-{
-	if (WIFEXITED(status))
+		if (argc >= MAX_ARGS)
+		{
+			fprintf(stderr, "Too many arguments\n");
+			exit(1);
+		}
+
+		token = strtok(NULL, " ");
+	}
+
+	argv[argc] = NULL;
+
+	for (i = 0; i < argc; i++)
 	{
-		int exit_status = WEXITSTATUS(status);
-
-		printf("Child exited with status %d\n", exit_status);
+		free(argv[i]);
 	}
+	free(argv);
+
+	return (argv);
 }
 
 /**
- * execute_command - Execute a shell command.
+ * execute_and_wait - Execute a shell command and wait for it.
  * @command: The command to execute.
  */
-void execute_command(char *command)
+void execute_and_wait(char *command)
 {
 	pid_t child_pid;
 	int status;
@@ -100,71 +96,30 @@ void execute_command(char *command)
 	}
 	else if (child_pid == 0)
 	{
-		execute_child_process(command);
+		char **argv = create_argv(command);
+
+		if (execvp(command, argv) == -1)
+		{
+			perror("hsh");
+			free(argv);
+			exit(1);
+		}
 	}
 	else
 	{
-		wait_for_child(child_pid, &status);
-		report_child_status(status);
-	}
-}
-
-/**
- * create_argv - Create an argument vector from a command string.
- * @command: The command string.
- * Return: An array of strings (arguments).
- */
-char **create_argv(char *command)
-{
-	char **argv = malloc(MAX_ARGS * sizeof(char *));
-
-	if (argv == NULL)
-	{
-		perror("malloc");
-		exit(1);
-	}
-
-	{
-		char *token;
-		int argc = 0;
-
-		token = strtok(command, " ");
-		while (token != NULL)
+		if (waitpid(child_pid, &status, 0) == -1)
 		{
-			argv[argc] = strdup(token);
-			if (argv[argc] == NULL)
-			{
-				perror("strdup");
-				exit(1);
-			}
-			argc++;
-
-			if (argc >= MAX_ARGS - 1)
-			{
-				fprintf(stderr, "Too many arguments\n");
-				exit(1);
-			}
-
-			token = strtok(NULL, " ");
+			perror("waitpid");
+			exit(1);
 		}
 
+		if (WIFEXITED(status))
+		{
+			int exit_status = WEXITSTATUS(status);
 
-	argv[argc] = NULL;
-	{
-free(argv[argc]);
-}
-}
-
-	return (argv);
-}
-
-/**
- * handle_eof - Handle the "end of file" condition (Ctrl+D).
- */
-void handle_eof(void)
-{
-	printf("\n");
-	exit(0);
+			printf("Child exited with status %d\n", exit_status);
+		}
+	}
 }
 
 /**
@@ -182,8 +137,16 @@ int main(void)
 	while (1)
 	{
 		print_prompt();
-		read_command(line);
-		execute_command(line);
+		if (fgets(line, MAX_LINE_LENGTH, stdin) == NULL)
+		{
+			/* Handle end of file (Ctrl+D) */
+			handle_eof();
+		}
+
+		/* Remove the newline character from the end of the line */
+		line[strlen(line) - 1] = '\0';
+
+		execute_and_wait(line);
 	}
 
 	return (0);

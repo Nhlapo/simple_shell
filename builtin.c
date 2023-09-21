@@ -1,3 +1,4 @@
+#include "shell.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,6 +6,10 @@
 #include <sys/wait.h>
 
 #define MAX_LINE_LENGTH 1024
+
+void print_prompt(void);
+void execute_command(char *command);
+void handle_eof(void);
 
 /**
  * print_prompt - Display the shell prompt.
@@ -23,6 +28,13 @@ void execute_command(char *command)
 pid_t child_pid;
 int status;
 
+if (strcmp(command, "exit\n") == 0)
+{
+printf("Exiting the shell...\n");
+exit(0);
+}
+
+    /* Fork a child process */
 child_pid = fork();
 if (child_pid == -1)
 {
@@ -31,14 +43,34 @@ exit(1);
 }
 else if (child_pid == 0)
 {
-if (execlp(command, command, NULL) == -1)
+/* In the child process, allocate memory for argv */
+char **argv = malloc(2 * sizeof(char *));
+if (argv == NULL)
 {
-perror("execvp");
+perror("malloc");
+exit(1);
+}
+argv[0] = strdup(command);
+if (argv[0] == NULL)
+{
+perror("strdup");
+free(argv);
+exit(1);
+}
+argv[1] = NULL;
+
+/* Execute the command */
+if (execve(argv[0], argv, environ) == -1)
+{
+perror("hsh");
+free(argv);
 exit(1);
 }
 }
 else
 {
+/* In the parent process */
+/* Wait for the child process to finish */
 if (waitpid(child_pid, &status, 0) == -1)
 {
 perror("waitpid");
@@ -65,17 +97,14 @@ exit(0);
 /**
  * main - The main entry point of the shell.
  *
- * Description:
- * This function serves as the main entry point of the shell.
- * It reads commands from the user, executes and displays the shell prompt.
+ * Description: This function serves as the main entry point of the shell. It
+ * reads commands from the user, executes them, and displays the shell prompt.
  *
- * Return:
- * Always returns 0.
+ * Return: Always returns 0.
  */
 int main(void)
 {
 char line[MAX_LINE_LENGTH];
-size_t len;
 
 while (1)
 {
@@ -84,15 +113,7 @@ if (fgets(line, MAX_LINE_LENGTH, stdin) == NULL)
 {
 handle_eof();
 }
-
-len = strlen(line);
-if (len > 0 && line[len - 1] == '\n')
-{
-line[len - 1] = '\0';
-}
-
 execute_command(line);
 }
-
 return (0);
 }

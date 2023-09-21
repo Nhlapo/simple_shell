@@ -45,6 +45,14 @@ void execute_command(char *command)
 	pid_t child_pid;
 	int status;
 
+if (strncmp(command, "exit", 4) == 0)
+{
+char *status_arg = command + 4;
+int exit_status = atoi(status_arg);
+
+exit(exit_status);
+}
+
 	if (strcmp(command, "exit") == 0)
 	{
 		char *status_arg = strtok(NULL, " ");

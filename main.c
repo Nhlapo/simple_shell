@@ -9,7 +9,7 @@
 #define MAX_ARGS 64
 
 void print_prompt(void);
-char *read_command(void);
+void read_command(char *line);
 void execute_command(char *command);
 void handle_eof(void);
 
@@ -22,29 +22,20 @@ void print_prompt(void)
 }
 
 /**
- * read_command - Read a command from the user and return it as a string.
- *
- * Return: The command string.
+ * read_command - Read a command from the user and store it in the buffer.
+ * @line: A buffer to store the command line.
  */
-char *read_command(void)
+void read_command(char *line)
 {
-	char *line = malloc(MAX_LINE_LENGTH);
-	if (line == NULL)
-	{
-		perror("malloc");
-		exit(1);
-	}
-
 	if (fgets(line, MAX_LINE_LENGTH, stdin) == NULL)
 	{
 		/* Handle end of file (Ctrl+D) */
-		handle_eof();
+		printf("\n");
+		exit(0);
 	}
 
 	/* Remove the newline character from the end of the line */
 	line[strlen(line) - 1] = '\0';
-
-	return (line);
 }
 
 /**
@@ -65,12 +56,22 @@ void execute_command(char *command)
 	}
 	else if (child_pid == 0)
 	{
-		char **argv = create_argv(command);
+		char *argv[MAX_ARGS];
+		int argc = 0;
+		char *token = strtok(command, " ");
+
+		while (token != NULL && argc < MAX_ARGS - 1)
+		{
+			argv[argc] = token;
+			token = strtok(NULL, " ");
+			argc++;
+		}
+
+		argv[argc] = NULL;
 
 		if (execvp(argv[0], argv) == -1)
 		{
 			perror("hsh");
-			free(argv);
 			exit(1);
 		}
 	}
@@ -110,14 +111,13 @@ void handle_eof(void)
  */
 int main(void)
 {
-	char *line;
+	char line[MAX_LINE_LENGTH];
 
 	while (1)
 	{
 		print_prompt();
-		line = read_command();
+		read_command(line);
 		execute_command(line);
-		free(line);
 	}
 
 	return (0);
