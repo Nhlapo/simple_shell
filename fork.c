@@ -87,25 +87,3 @@ void handle_eof(void)
 	printf("\n");
 	exit(0);
 }
-
-/**
- * main - The main entry point of the shell.
- *
- * Description: This function serves as the main entry point of the shell. It
- * reads commands from the user, executes them, and displays the shell prompt.
- *
- * Return: Always returns 0.
- */
-int main(void)
-{
-	char line[MAX_LINE_LENGTH];
-
-	while (1)
-	{
-		print_prompt();
-		read_command(line);
-		execute_command(line);
-	}
-
-	return (0);
-}
